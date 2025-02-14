@@ -1,8 +1,5 @@
-import fitz  # PyMuPDF for reading PDFs
 import mysql.connector
 import ollama
-import json
-import os
 import time
 
 # MySQL Database Configuration
@@ -12,9 +9,6 @@ DB_CONFIG = {
     "password": "",  # Change if needed
     "database": "neurips_papers"
 }
-
-# Folder where PDFs are stored
-PDF_BASE_PATH = "D:/scraped-pdfs/"
 
 # Categories for classification
 CATEGORIES = [
@@ -31,7 +25,7 @@ def fetch_papers_without_category():
     conn = mysql.connector.connect(**DB_CONFIG)
     cursor = conn.cursor(dictionary=True)
 
-    query = "SELECT id, title, pdf_path FROM papers WHERE category IS NULL LIMIT 10"
+    query = "SELECT id, title, abstract FROM papers WHERE category IS NULL LIMIT 10"
     cursor.execute(query)
     papers = cursor.fetchall()
 
@@ -39,42 +33,42 @@ def fetch_papers_without_category():
     conn.close()
     return papers
 
-def extract_text_from_pdf(pdf_path):
-    """Extract text content from a given PDF"""
-    full_path = os.path.join(PDF_BASE_PATH, pdf_path)
+def extract_category(response_text):
+    """Extract the last meaningful line from DeepSeek-R1 response"""
+    # Remove <think>...</think> if present
+    if "<think>" in response_text and "</think>" in response_text:
+        response_text = response_text.split("</think>")[-1].strip()
+    
+    # Get the last non-empty line
+    lines = response_text.strip().split("\n")
+    category = lines[-1].strip()
 
-    if not os.path.exists(full_path):
-        print(f"❌ PDF not found: {full_path}")
-        return None
+    # Ensure it's a valid category
+    if category in CATEGORIES:
+        return category
+    
+    print(f"⚠️ Unexpected category: {category}")
+    return None
 
-    doc = fitz.open(full_path)
-    text = ""
-
-    for page in doc:
-        text += page.get_text("text") + "\n"
-
-    return text if text.strip() else None
-
-def classify_with_deepseek(text):
-    """Send extracted text to DeepSeek-R1-Distill-Llama-8B via Ollama and get a category."""
+def classify_with_deepseek(title, abstract):
+    """Send title and abstract to DeepSeek-R1-Distill-Llama-8B via Ollama and get a category."""
     prompt = f"""
-    Read the following research paper text and classify it into one of the following categories:
+    Classify the following research paper into one of these categories:
     {CATEGORIES}
-    -----
-    {text[:4000]}
-    -----
-    Respond with only one category name.
+
+    Title: {title}
+    Abstract: {abstract}
+
+    Respond with only the category name on the last line.
     """
     
     for attempt in range(5):  # Retry up to 5 times
         try:
-            response = ollama.chat(model="deepseek", messages=[{"role": "user", "content": prompt}])
+            response = ollama.chat(model="deepseek-r1:8b", messages=[{"role": "user", "content": prompt}])
             if response and "message" in response and "content" in response["message"]:
-                category = response["message"]["content"].strip()
-                if category in CATEGORIES:
+                category = extract_category(response["message"]["content"])
+                if category:
                     return category
-                else:
-                    print(f"⚠️ Unexpected category: {category}")
         except Exception as e:
             print(f"❌ API Error: {e}")
             time.sleep(10)
@@ -105,12 +99,11 @@ def process_papers():
         for paper in papers:
             print(f"🔍 Processing: {paper['title']}")
 
-            pdf_text = extract_text_from_pdf(paper["pdf_path"])
-            if not pdf_text:
-                print("⚠️ Skipping due to empty PDF content.")
+            if not paper["abstract"]:  # Skip if abstract is missing
+                print("⚠️ Skipping due to missing abstract.")
                 continue
 
-            category = classify_with_deepseek(pdf_text)
+            category = classify_with_deepseek(paper["title"], paper["abstract"])
             if category:
                 print(f"✅ Category Assigned: {category}")
                 update_category_in_db(paper["id"], category)
@@ -123,3 +116,4 @@ def process_papers():
 
 if __name__ == "__main__":
     process_papers()
+
