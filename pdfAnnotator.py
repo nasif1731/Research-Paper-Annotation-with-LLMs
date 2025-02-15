@@ -15,7 +15,7 @@ DB_CONFIG = {
 }
 
 # Google Gemini API Configuration
-GENAI_API_KEY = "AIzaSyBlU1khA6xJbTb5Uja7zOUn8FT4vMrOO6Y"  # Replace with your actual API key
+GENAI_API_KEY = "GENAI_API_KEY"  # Replace with your actual API key
 
 # Set up Google Gemini API
 genai.configure(api_key=GENAI_API_KEY)
