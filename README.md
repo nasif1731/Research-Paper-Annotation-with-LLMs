@@ -60,13 +60,13 @@ Replace `GENAI_API_KEY` in the script with your API key.
 ### Classify Papers Using DeepSeek-R1
 
 ```bash
-python classify_with_deepseek.py
+python paperCategorizer.py
 ```
 
 ### Annotate Papers Using Google Gemini
 
 ```bash
-python annotate_with_gemini.py
+python pdfAnnotator.py
 ```
 
 ## Challenges & Solutions
