@@ -11,7 +11,7 @@ DB_CONFIG = {
 }
 
 # Google Gemini API Configuration
-GENAI_API_KEY = "AIzaSyAa5UaPTswpZd50GJ5vDDNAgFnO8WLRu_A"  # Replace with your actual API key
+GENAI_API_KEY = "GEMINI_API"  # Replace with your actual API key
 genai.configure(api_key=GENAI_API_KEY)
 
 # Categories for classification
